@@ -8,15 +8,183 @@
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- React + ReactDOM (CDN) -->
+  <!-- React + Babel -->
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-
-  <!-- Babel for JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- QRious (QR code library) -->
+  <!-- QRious -->
   <script src="https://unpkg.com/qrious@4.0.2/dist/qrious.min.js"></script>
+</head>
+<body class="bg-gray-100">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    function App() {
+      const [type, setType] = React.useState("url");
+      const [value, setValue] = React.useState("");
+      const [qr, setQr] = React.useState("");
+      const [logo, setLogo] = React.useState("");
+      const [email, setEmail] = React.useState({ address: "", subject: "", body: "" });
+      const [sms, setSms] = React.useState({ number: "", message: "" });
+      const [vcard, setVcard] = React.useState({ firstName: "", lastName: "", phone: "", email: "", org: "" });
+      const [wifi, setWifi] = React.useState({ ssid: "", password: "", encryption: "WPA" });
+      const canvasRef = React.useRef(null);
+
+      React.useEffect(() => {
+        if (qr && canvasRef.current && window.QRious) {
+          const qrGen = new QRious({
+            element: canvasRef.current,
+            value: qr,
+            size: 256,
+            level: "H"
+          });
+
+          if (logo) {
+            const ctx = canvasRef.current.getContext("2d");
+            const img = new Image();
+            img.src = logo;
+            img.onload = () => {
+              const size = 50;
+              const x = (canvasRef.current.width - size) / 2;
+              const y = (canvasRef.current.height - size) / 2;
+              ctx.fillStyle = "#fff";
+              ctx.fillRect(x, y, size, size);
+              ctx.drawImage(img, x, y, size, size);
+            };
+          }
+        }
+      }, [qr, logo]);
+
+      const generate = () => {
+        let data = "";
+        switch (type) {
+          case "url":
+          case "text":
+            data = value;
+            break;
+          case "phone":
+            data = `tel:${value}`;
+            break;
+          case "email":
+            data = `mailto:${email.address}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}`;
+            break;
+          case "sms":
+            data = `SMSTO:${sms.number}:${sms.message}`;
+            break;
+          case "vcard":
+            data = `BEGIN:VCARD\nVERSION:3.0\nN:${vcard.lastName};${vcard.firstName}\nTEL:${vcard.phone}\nEMAIL:${vcard.email}\nORG:${vcard.org}\nEND:VCARD`;
+            break;
+          case "wifi":
+            data = `WIFI:T:${wifi.encryption};S:${wifi.ssid};P:${wifi.password};;`;
+            break;
+        }
+        setQr(data);
+      };
+
+      const download = () => {
+        const canvas = canvasRef.current;
+        const a = document.createElement("a");
+        a.href = canvas.toDataURL("image/png");
+        a.download = "qrcode.png";
+        a.click();
+      };
+
+      const renderInputs = () => {
+        switch (type) {
+          case "url":
+          case "text":
+          case "phone":
+            return (
+              <input
+                className="input"
+                placeholder={`Enter ${type}`}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+              />
+            );
+          case "email":
+            return (
+              <div className="space-y-2">
+                <input className="input" placeholder="Email address" value={email.address} onChange={(e) => setEmail({ ...email, address: e.target.value })} />
+                <input className="input" placeholder="Subject" value={email.subject} onChange={(e) => setEmail({ ...email, subject: e.target.value })} />
+                <textarea className="input" placeholder="Body" value={email.body} onChange={(e) => setEmail({ ...email, body: e.target.value })} />
+              </div>
+            );
+          case "sms":
+            return (
+              <div className="space-y-2">
+                <input className="input" placeholder="Phone number" value={sms.number} onChange={(e) => setSms({ ...sms, number: e.target.value })} />
+                <textarea className="input" placeholder="Message" value={sms.message} onChange={(e) => setSms({ ...sms, message: e.target.value })} />
+              </div>
+            );
+          case "vcard":
+            return (
+              <div className="grid grid-cols-2 gap-2">
+                <input className="input" placeholder="First name" value={vcard.firstName} onChange={(e) => setVcard({ ...vcard, firstName: e.target.value })} />
+                <input className="input" placeholder="Last name" value={vcard.lastName} onChange={(e) => setVcard({ ...vcard, lastName: e.target.value })} />
+                <input className="input col-span-2" placeholder="Phone" value={vcard.phone} onChange={(e) => setVcard({ ...vcard, phone: e.target.value })} />
+                <input className="input col-span-2" placeholder="Email" value={vcard.email} onChange={(e) => setVcard({ ...vcard, email: e.target.value })} />
+                <input className="input col-span-2" placeholder="Organization" value={vcard.org} onChange={(e) => setVcard({ ...vcard, org: e.target.value })} />
+              </div>
+            );
+          case "wifi":
+            return (
+              <div className="space-y-2">
+                <input className="input" placeholder="SSID" value={wifi.ssid} onChange={(e) => setWifi({ ...wifi, ssid: e.target.value })} />
+                <input className="input" placeholder="Password" type="password" value={wifi.password} onChange={(e) => setWifi({ ...wifi, password: e.target.value })} />
+                <select className="input" value={wifi.encryption} onChange={(e) => setWifi({ ...wifi, encryption: e.target.value })}>
+                  <option value="WPA">WPA/WPA2</option>
+                  <option value="WEP">WEP</option>
+                  <option value="nopass">None</option>
+                </select>
+              </div>
+            );
+          default:
+            return null;
+        }
+      };
+
+      return (
+        <div className="max-w-3xl mx-auto mt-8 bg-white p-6 rounded-xl shadow">
+          <h1 className="text-3xl font-bold mb-4 text-center text-blue-700">QR Code Generator</h1>
+
+          <div className="mb-4">
+            <label className="block font-semibold text-gray-700 mb-1">Select QR Code Type</label>
+            <select value={type} onChange={(e) => setType(e.target.value)} className="input">
+              <option value="url">URL</option>
+              <option value="text">Text</option>
+              <option value="phone">Phone</option>
+              <option value="email">Email</option>
+              <option value="sms">SMS</option>
+              <option value="vcard">vCard (Contact)</option>
+              <option value="wifi">Wi-Fi</option>
+            </select>
+          </div>
+
+          <div className="mb-4">{renderInputs()}</div>
+
+          <div className="mb-4">
+            <input className="input" placeholder="Optional Logo Image URL" value={logo} onChange={(e) => setLogo(e.target.value)} />
+          </div>
+
+          <div className="flex gap-4 mb-6">
+            <button onClick={generate} className="bg-blue-600 text-white px-4 py-2 rounded">Generate</button>
+            <button onClick={download} className="bg-green-600 text-white px-4 py-2 rounded">Download</button>
+          </div>
+
+          {qr ? (
+            <canvas ref={canvasRef} className="block mx-auto rounded shadow-lg" />
+          ) : (
+            <p className="text-center text-gray-500">QR Code will appear here after generation.</p>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
 
   <style>
     .input {
@@ -31,61 +199,5 @@
       box-shadow: 0 0 0 1px #2563eb;
     }
   </style>
-</head>
-<body class="bg-gray-100">
-
-  <div id="root"></div>
-
-  <script type="text/babel">
-    function App() {
-      const [input, setInput] = React.useState('');
-      const [qrValue, setQrValue] = React.useState('');
-      const qrRef = React.useRef(null);
-
-      React.useEffect(() => {
-        if (qrValue && qrRef.current && window.QRious) {
-          new QRious({
-            element: qrRef.current,
-            value: qrValue,
-            size: 256,
-            level: 'H'
-          });
-        }
-      }, [qrValue]);
-
-      const generate = () => setQrValue(input);
-
-      const download = () => {
-        if (qrRef.current) {
-          const link = document.createElement('a');
-          link.download = 'qrcode.png';
-          link.href = qrRef.current.toDataURL();
-          link.click();
-        }
-      };
-
-      return (
-        <div className="max-w-xl mx-auto mt-10 bg-white p-6 rounded-xl shadow-lg">
-          <h1 className="text-2xl font-bold mb-4 text-center text-blue-700">QR Code Generator</h1>
-          <input
-            type="text"
-            placeholder="Enter text or URL"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            className="input mb-4"
-          />
-          <div className="flex gap-4 mb-4">
-            <button onClick={generate} className="bg-blue-600 text-white px-4 py-2 rounded">Generate</button>
-            <button onClick={download} className="bg-green-600 text-white px-4 py-2 rounded">Download</button>
-          </div>
-          {qrValue && <canvas ref={qrRef} className="mx-auto rounded shadow" />}
-        </div>
-      );
-    }
-
-    const root = ReactDOM.createRoot(document.getElementById("root"));
-    root.render(<App />);
-  </script>
-
 </body>
 </html>
